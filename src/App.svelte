@@ -1,7 +1,10 @@
 <script lang="ts">
-  import Login from "./lib/Greet.svelte";
+  import Login from "./lib/Login.svelte";
+  import Register from "./lib/Register.svelte";
 </script>
 
-<main class="container">
+<div class="flex-auto bg-gray-950 w-screen h-screen">
+  <!-- <Login /> -->
+  <div class="p-5" />
   <Login />
-</main>
+</div>
