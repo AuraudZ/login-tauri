@@ -1,6 +1,6 @@
 use std::{ collections::HashMap };
 use types::Response;
-use types::client;
+use types::client_builder as client;
 
 #[tauri::command]
 pub async fn register(username: String, password: String) -> Result<Response, String> {
@@ -9,7 +9,7 @@ pub async fn register(username: String, password: String) -> Result<Response, St
     let mut map = HashMap::new();
     map.insert("username".to_string(), username);
     map.insert("password".to_string(), password);
-    let client = client().build().unwrap();
+    let client = client();
     let res = client.post(url).query(&map).send().await;
 
     match res {

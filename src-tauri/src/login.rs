@@ -1,20 +1,28 @@
-use std::borrow::BorrowMut;
 use std::sync::Arc;
 use std::{ collections::HashMap };
 use chrono::prelude::*;
-use reqwest::Client;
 use reqwest::cookie::Jar;
-use types::Response;
+use reqwest::cookie::CookieStore;
+use types::{ Response };
 use std::time::{ UNIX_EPOCH, Duration };
+
+pub fn jar() -> Arc<Jar> {
+    // Cookie store for the client
+    let cookie_store = Arc::new(Jar::default());
+    return cookie_store;
+}
+
+pub fn client_builder() -> reqwest::ClientBuilder {
+    // Examine initial contents
+    println!("initial load");
+
+    return reqwest::Client::builder().cookie_provider(std::sync::Arc::clone(&jar()));
+}
 
 // Global client instance
 pub fn client() -> reqwest::Client {
-    return reqwest::Client
-        ::builder()
-        .cookie_store(true)
-        .cookie_provider(Arc::new(Jar::default()))
-        .build()
-        .unwrap();
+    // Cookie store for the client
+    client_builder().build().unwrap()
 }
 
 #[tauri::command]
@@ -28,8 +36,11 @@ pub async fn login(
     let mut map = HashMap::new();
     map.insert("username".to_string(), username);
     map.insert("password".to_string(), password);
-    let real_client = client();
-    let res = real_client.post(url).query(&map).send().await;
+    let real_client = client_builder();
+
+    let tmp_client = client_builder().build().unwrap();
+
+    let res = tmp_client.post(url).query(&map).send().await;
 
     match res {
         Ok(res) => {
@@ -38,15 +49,17 @@ pub async fn login(
                 .find(|c| c.name() == "qid")
                 .unwrap();
 
-            let jar = Jar::default();
+            println!("QID Cookie: {:?}", qid_cookie);
 
-            let cookie_str = format!("{}={}", qid_cookie.name(), qid_cookie.value());
+            let qid_cookie_str = format!("{}={}", qid_cookie.name(), qid_cookie.value());
+            println!("QID Cookie Str: {:?}", qid_cookie_str);
 
-            jar.add_cookie_str(&cookie_str, &reqwest::Url::parse("http://localhost:3000").unwrap());
+            // Add the cookie to the cookie store
+            jar().add_cookie_str(&qid_cookie_str, &url::Url::parse(url).unwrap());
+            // Write
 
-            println!("Cookie: {:?}", qid_cookie);
-            // Forward the cookie to the client
-
+            real_client.cookie_provider(std::sync::Arc::clone(&jar())).build().unwrap();
+            // println!("Insert: {:?}", insert);
             let data = res.json::<Response>().await.map_err(|err| err.to_string());
 
             println!("Data: {:?}", data);
@@ -84,6 +97,41 @@ pub async fn login(
                 }
             }
             return data;
+        }
+        Err(err) => Err(err.to_string()),
+    }
+}
+
+// remember to call `.manage(MyState::default())`
+#[tauri::command]
+pub async fn renew_license() -> Result<(), String> {
+    // Make a post request to the server
+    let url = "http://localhost:3000/gen";
+
+    let jar_cookies = jar().cookies(&url::Url::parse("http://localhost:3000/login").unwrap());
+    println!("Jar Cookies: {:?}", jar_cookies);
+    let res = client().post(url).send().await;
+
+    match res {
+        Ok(res) => {
+            res.headers()
+                .iter()
+                .for_each(|(key, value)| {
+                    println!("{}: {:?}", key, value);
+                });
+            let data = res.json::<types::Response>().await.map_err(|err| err.to_string());
+            println!("Data: {:?}", data);
+            if data.as_ref().unwrap().error != "" {
+                println!("Error: {:?}", data.as_ref().unwrap().error);
+                return Ok(());
+            }
+            if data.is_ok() {
+                let data = data.as_ref().unwrap();
+                let user = data.user.as_ref().unwrap();
+
+                println!("User: {:?}", user);
+            }
+            return Ok(());
         }
         Err(err) => Err(err.to_string()),
     }

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use serde::Serialize;
 use serde::Deserialize;
 
@@ -25,6 +27,15 @@ pub struct Response {
 }
 
 // Create a global reqwest client
-pub fn client() -> reqwest::ClientBuilder {
-    return reqwest::Client::builder().cookie_store(true);
+pub fn client_builder() -> reqwest::Client {
+    // Examine initial contents
+    println!("initial load");
+
+    return (
+        reqwest::Client
+            ::builder()
+            // .cookie_provider(std::sync::Arc::clone(&cookie_store_arc_mutex))
+            .build()
+            .unwrap()
+    );
 }

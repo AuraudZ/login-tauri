@@ -3,7 +3,6 @@
 
 mod login;
 mod register;
-mod renew_license;
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -14,12 +13,7 @@ fn main() {
     tauri::Builder
         ::default()
         .invoke_handler(
-            tauri::generate_handler![
-                greet,
-                login::login,
-                register::register,
-                renew_license::renew_license
-            ]
+            tauri::generate_handler![greet, login::login, register::register, login::renew_license]
         )
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
